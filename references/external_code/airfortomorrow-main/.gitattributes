@@ -1,0 +1,9 @@
+data/training/silver_dataset.parquet filter=lfs diff=lfs merge=lfs -text
+assets/dem/LAO_THA_elevation.csv filter=lfs diff=lfs merge=lfs -text
+assets/landcover/LAO_THA_landcover.csv filter=lfs diff=lfs merge=lfs -text
+assets/worldpop/LAO_THA_worldpop_h3_08.csv filter=lfs diff=lfs merge=lfs -text
+assets/sensor_lists/airgradient_sensor_list.csv filter=lfs diff=lfs merge=lfs -text
+data/raw/firms/historical/fire_archive_J1V-C2_617609.csv filter=lfs diff=lfs merge=lfs -text
+data/raw/firms/historical/fire_archive_M-C61_617608.csv filter=lfs diff=lfs merge=lfs -text
+data/raw/firms/historical/fire_archive_SV-C2_617611.csv filter=lfs diff=lfs merge=lfs -text
+data/raw/firms/historical/fire_nrt_J2V-C2_617610.csv filter=lfs diff=lfs merge=lfs -text

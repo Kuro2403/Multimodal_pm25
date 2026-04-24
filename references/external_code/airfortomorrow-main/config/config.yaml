@@ -1,0 +1,304 @@
+# ========================================
+# Air Quality Prediction System Configuration
+# ========================================
+# This is the central configuration file for all pipeline components.
+# All scripts should reference this file for default values.
+
+# ========================================
+# System-wide Settings
+# ========================================
+system:
+  # Default geographic region
+  countries:
+    default: ["THA", "LAO"]  # ISO3 codes - single source of truth
+    # Country-specific mappings for different data sources
+    mappings:
+      openaq_numeric: {"LAO": 68, "THA": 111}  # OpenAQ API numeric codes
+      iso3_codes: {"LAO": "LAO", "THA": "THA"}  # For geoBoundaries and most APIs
+      
+  # Default time windows
+  time_windows:
+    realtime_hours: 48
+    realtime_days: 2
+    historical_buffer_days: 1
+    
+  # Geographic settings
+  geographic:
+    h3_resolution: 8
+    buffer_degrees: 0.4  # Default for most data sources (deprecated - use buffers section below)
+    # Data source-specific buffers - SINGLE SOURCE OF TRUTH
+    # All data collection scripts should reference these values
+    buffers:
+      default: 0.4      # Default for Himawari, ERA5, AirGradient, OpenAQ
+      firms: 0          # FIRMS fire data buffer (reduced from 4.0 to 0)
+      openaq: 0.4       # Standard buffer for air quality sensors
+      airgradient: 0.4  # Standard buffer for air quality sensors
+      himawari: 0.4     # Standard buffer for satellite data
+      era5: 0.4         # Standard buffer for meteorological data
+
+# ========================================
+# Data Collection Settings
+# ========================================
+data_collection:
+  # Data source specific settings
+  openaq:
+    countries: [68, 111]  # Thailand=111, Laos=68 (API numeric codes)
+    indicators: ["pm25"]
+    rate_limit_requests_per_minute: 60
+    batch_size: 10
+    max_workers: 32  
+    measurements_limit: 1000
+
+  airgradient:
+    countries: ["LAO", "THA"]  # ISO codes for geoBoundaries
+    base_url: "https://api.airgradient.com/public/api/v1"
+    endpoints:
+      current: "/world/locations/measures/current"
+      historical: "/unicef/locations/{location_id}/measures/past"
+    rate_limiting:
+      requests_per_minute: 30  # Conservative rate limit for individual sensor requests
+      delay_between_requests: 2.0  # Seconds between requests
+      batch_size: 10  # Process sensors in small batches
+      max_retries: 3  # Retry failed requests
+      backoff_factor: 2.0  # Exponential backoff multiplier
+    fields:
+      required: ['locationId', 'timestamp', 'pm02', 'latitude', 'longitude']
+      optional: ['pm01', 'pm10', 'temperature', 'humidity']
+    validation:
+      pm25_min: 0
+      pm25_max: 1000
+
+  himawari:
+    countries: ["LAO", "THA"]
+    parameters: ["AOD"]
+    ftp_settings:
+      server: "ftp.ptree.jaxa.jp"
+      # Credentials should be in .env file as HIMAWARI_FTP_USER and HIMAWARI_FTP_PASSWORD
+    processing:
+      time_limit_minutes: 30
+      chunk_size: 32
+      
+  era5:
+    countries: ["LAO", "THA"]
+    parameters: ["2d", "2t", "10u", "10v"]  # Dewpoint, temp, wind u/v
+    forecast_steps: [0, 6, 12, 18, 24]  # Hours
+    h3_resolution_coarse: 4
+    h3_resolution_fine: 8
+    # IDW interpolation settings
+    idw:
+    
+      historical:
+        rings: 10 
+        weight_power: 1.5  
+      # Real-time mode settings 
+      realtime:
+        rings: 32 
+        weight_power: 1.75  
+      memory_optimization: true  # Use memory optimization techniques
+    rate_limiting:
+      requests_per_minute: 10  # Conservative rate limit for CDS API
+      delay_between_requests: 6.0  # Seconds between requests (60/10)
+      max_retries: 5  # Retry failed requests
+      backoff_factor: 2.0  # Exponential backoff multiplier
+      retry_delay_base: 60  # Base delay for retries (seconds)
+    
+  firms:
+    countries: ["LAO", "THA"]
+    sources: ["VIIRS", "MODIS"]
+    kde_settings:
+      bandwidth_factor: 0.3
+      grid_size: 6400
+      number_of_chunks: 8
+
+# ========================================
+# Data Processing Settings  
+# ========================================
+data_processing:
+  # Outlier detection threshold (standard deviations)
+  outlier_threshold: 3.0
+  
+  # H3 processing
+  h3:
+    default_resolution: 8
+    kriging_resolution: 8
+  
+
+# ========================================
+# File Paths and Directories
+# ========================================
+paths:
+  # Base directories
+  base: "."
+  data: "data"
+  logs: "logs"
+  assets: "assets"
+  cache:
+    base: "data/cache"
+    silver: "data/cache/silver"
+    himawari: "data/cache/himawari"
+    era5: "data/cache/era5"
+    firms: "data/cache/firms"
+  
+  # Raw data paths
+  raw:
+    base: "data/raw"
+    openaq:
+      base: "data/raw/openaq"
+      historical: "data/raw/openaq/historical"
+      realtime: "data/raw/openaq/realtime"
+    airgradient:
+      base: "data/raw/airgradient"
+      historical: "data/raw/airgradient/historical"
+      realtime: "data/raw/airgradient/realtime"
+    himawari:
+      base: "data/raw/himawari"
+      netcdf: "data/raw/himawari"  # NetCDF files
+      tif: "data/processed/himawari/tif"  # Converted TIF files
+    era5:
+      base: "data/raw/era5"
+      netcdf: "data/raw/era5"
+    firms:
+      base: "data/raw/firms"
+      historical: "data/raw/firms/historical"
+      nrt: "data/raw/firms/nrt"  # Near real-time
+      
+  # Processed data paths
+  processed:
+    base: "data/processed"
+    openaq: "data/processed/openaq"
+    airgradient: "data/processed/airgradient"
+    airquality:
+      base: "data/processed/airquality"
+      realtime: "data/processed/airquality/realtime"
+      historical: "data/processed/airquality/historical"
+    himawari:
+      base: "data/processed/himawari"
+      h3: "data/processed/himawari/h3"
+      daily_aggregated: "data/processed/himawari/daily_aggregated" 
+      kriged:
+        base: "data/processed/himawari/kriged"
+        h3_indexed:
+          base: "data/processed/himawari/kriged/h3_indexed"
+          realtime: "data/processed/himawari/kriged/h3_indexed"
+          historical: "data/processed/himawari/kriged/h3_indexed"
+    era5:
+      base: "data/processed/era5"
+      h3: "data/processed/era5/h3"
+      daily_aggregated:
+        base: "data/processed/era5/daily_aggregated"
+        realtime: "data/processed/era5/daily_aggregated/realtime"
+        historical: "data/processed/era5/daily_aggregated/historical"
+    firms:
+      base: "data/processed/firms"
+      h3:
+        base: "data/processed/firms/h3"
+        realtime: "data/processed/firms/h3/realtime"
+        historical: "data/processed/firms/h3/historical"
+      prepared: "data/processed/firms/prepared"
+      kde: "data/processed/firms/kde"
+      
+  # Final output paths
+  silver:
+    base: "data/silver"
+    realtime: "data/silver/realtime"
+    historical: "data/silver/historical"
+    
+  predictions:
+    base: "data/predictions"
+    realtime: "data/predictions/realtime"
+    historical: "data/predictions/historical"
+    data:
+      realtime: "data/predictions/data/realtime"
+      historical: "data/predictions/data/historical"
+    maps:
+      realtime: "data/predictions/map/realtime"
+      historical: "data/predictions/map/historical"
+      
+  # Asset paths
+  assets:
+    base: "assets"
+    dem: "assets/dem"
+    landcover: "assets/landcover"
+    worldpop: "assets/worldpop"
+    boundaries: "assets/boundaries"
+    sensor_lists: "assets/sensor_lists"
+  boundaries: "data/boundaries"
+  models:
+    base: "src/models"
+    xgboost: "src/models/xgboost_model.json"
+
+# ========================================
+# API Keys and Credentials
+# ========================================
+# All API keys are stored in .env file as environment variables:
+# - OPENAQ_API_KEY
+# - HIMAWARI_FTP_USER  
+# - HIMAWARI_FTP_PASSWORD
+# - CDSAPI_KEY
+# - CDSAPI_URL
+
+# ========================================
+# Logging Configuration
+# ========================================
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  # Log files are automatically created with timestamps
+
+# ========================================
+# Model Settings
+# ========================================
+model:
+  type: "xgboost"
+  path: "src/models/xgboost_model.json"
+
+  # Prediction settings
+  prediction:
+    target: "pm25_value"
+    window_size: 24  # hours
+    forecast_horizon: 24  # hours
+
+# ========================================
+# Visualization Settings
+# ========================================
+visualization:
+  maps:
+    default_resolution: 6  # H3 resolution for map generation
+    color_scheme: "viridis"
+    
+  # Air quality categories (WHO guidelines)
+  aqi_categories:
+    good: [0, 15]
+    moderate: [15, 35] 
+    unhealthy_sensitive: [35, 55]
+    unhealthy: [55, 150]
+    very_unhealthy: [150, 999]
+
+# ========================================
+# AWS and Cloud Settings
+# ========================================
+aws:
+  region: "us-east-1"  # OpenAQ data region
+  s3:
+    bucket_openaq: "openaq-data-archive"
+    
+# ========================================
+# Pipeline Execution Settings  
+# ========================================
+execution:
+  # Timeouts (in seconds)
+  timeouts:
+    pipeline_default: 7200  # 2 hour per pipeline
+    download_timeout: 7200   # 2 hour for downloads
+    processing_timeout: 14800 # 4 hours for heavy processing
+    
+  # Parallel execution
+  parallel:
+    max_workers: 64
+    enabled_by_default: false
+    
+  # Error handling
+  error_handling:
+    stop_on_failure: false
+    max_retries: 3
+    retry_delay: 60  # seconds

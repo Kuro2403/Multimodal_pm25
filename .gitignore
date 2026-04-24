@@ -1,0 +1,37 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+# Data and generated artifacts
+data/
+outputs/
+models/
+*.log
+*.tmp
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Large external references
+references/external_code/**/Checkpoints/
+references/external_code/**/Datadir/
+references/external_code/**/mlruns/
+references/external_code/**/results/
+references/external_code/**/data/
+references/external_code/airfortomorrow-main/assets/dem/
+references/external_code/airfortomorrow-main/assets/landcover/
+references/external_code/airfortomorrow-main/assets/sensor_lists/
+references/external_code/airfortomorrow-main/assets/worldpop/
+references/external_code/airfortomorrow-main/data/raw/firms/historical/
+references/external_code/**/*.zip
+references/external_code/**/*.pdf
+*.h5
+*.ckpt
+*.pt
+*.pth

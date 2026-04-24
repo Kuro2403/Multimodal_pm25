@@ -1,0 +1,73 @@
+name: Notebook Hygiene
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  notebook-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate notebook hygiene
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import re
+          import sys
+
+          root = pathlib.Path('notebooks')
+          if not root.exists():
+              print('No notebooks directory found; passing.')
+              sys.exit(0)
+
+          local_path_patterns = [
+              re.compile(r'/Users/'),
+              re.compile(r'/Workspace/Users/'),
+          ]
+
+          failures = []
+          for nb_path in sorted(root.glob('*.ipynb')):
+              try:
+                  data = json.loads(nb_path.read_text(encoding='utf-8'))
+              except Exception as exc:
+                  failures.append(f'{nb_path}: invalid JSON ({exc})')
+                  continue
+
+              cells = data.get('cells', [])
+              for i, cell in enumerate(cells):
+                  outputs = cell.get('outputs', [])
+                  if outputs:
+                      failures.append(f'{nb_path}: cell {i} has outputs')
+
+                  source = ''.join(cell.get('source', []))
+                  for pat in local_path_patterns:
+                      if pat.search(source):
+                          failures.append(f'{nb_path}: cell {i} contains local path pattern {pat.pattern}')
+
+                  for out in outputs:
+                      out_text = json.dumps(out, ensure_ascii=False)
+                      for pat in local_path_patterns:
+                          if pat.search(out_text):
+                              failures.append(f'{nb_path}: cell {i} output contains local path pattern {pat.pattern}')
+
+              metadata = data.get('metadata', {})
+              if metadata.get('kernelspec', {}).get('display_name', '').strip() == '':
+                  # No strict failure for missing kernel metadata.
+                  pass
+
+          if failures:
+              print('Notebook hygiene check failed:')
+              for f in failures:
+                  print('-', f)
+              sys.exit(1)
+
+          print('Notebook hygiene check passed.')
+          PY

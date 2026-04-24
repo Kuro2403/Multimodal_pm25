@@ -1,0 +1,9 @@
+﻿d:
+
+cd "D:\Bussiness_plan\Multimodal_PM25\Test_code\AQNet-main"
+
+conda activate aqnet-win
+
+cd Modules\ThreeOutput
+
+python training_3poll.py --epochs=20

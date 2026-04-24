@@ -1,0 +1,16 @@
+# Example environment variables for air quality prediction system
+# Copy this file to .env and fill in your credentials
+
+# https://www.eorc.jaxa.jp/ptree/registration_top.html
+# JAXA FTP credentials
+HIMAWARI_FTP_USER='xxx'
+HIMAWARI_FTP_PASSWORD='xxx'
+
+# https://cds.climate.copernicus.eu/how-to-api
+# CDS API KEY 
+CDSAPI_URL='https://cds.climate.copernicus.eu/api'
+CDSAPI_KEY='xxx'
+
+# https://openaq.org/
+# OpenAQ API Key
+OPENAQ_API_KEY=xxx
