@@ -2,16 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 
-INPUT_DIR = Path(r"notebooks/satellite_two_stations_output")
-OUTPUT_DIR = Path(r"data/processed/satellite_pm25_daily")
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+INPUT_DIR = _PROJECT_ROOT / "data/processed/Hanoi"
+OUTPUT_DIR = _PROJECT_ROOT / "data/processed/satellite_pm25_daily"
 
 TARGET = "pm25"
 SPLIT_COL = "split"
 TRAIN_FRAC = 0.70
 VALIDATION_FRAC = 0.15
+PM25_INTERP_LIMIT = 3  # max consecutive missing days to forward-interpolate pm25
 
 
 def _max_missing_run(series: pd.Series) -> int:
@@ -49,20 +52,46 @@ def _load_station_files() -> pd.DataFrame:
     return df.sort_values(["location_id", "date"]).reset_index(drop=True)
 
 
-def _assign_chronological_splits(df: pd.DataFrame) -> pd.DataFrame:
+def _fill_date_gaps(df: pd.DataFrame) -> pd.DataFrame:
+    """Reindex each station to a full daily calendar and forward-interpolate pm25 over short gaps."""
+    _metadata = ("location_id", "location_name", "source_file", "latitude", "longitude")
     parts = []
     for _, group in df.groupby("location_id", sort=False):
-        group = group.sort_values("date").copy()
-        n_rows = len(group)
-        train_end = int(n_rows * TRAIN_FRAC)
-        validation_end = int(n_rows * (TRAIN_FRAC + VALIDATION_FRAC))
-
-        group[SPLIT_COL] = "train"
-        group.iloc[train_end:validation_end, group.columns.get_loc(SPLIT_COL)] = "validation"
-        group.iloc[validation_end:, group.columns.get_loc(SPLIT_COL)] = "test"
+        group = group.sort_values("date").set_index("date")
+        daily = pd.date_range(group.index.min(), group.index.max(), freq="D")
+        group = group.reindex(daily)
+        group.index.name = "date"
+        for col in _metadata:
+            if col in group.columns:
+                group[col] = group[col].ffill().bfill()
+        group["pm25_was_interpolated"] = group[TARGET].isna().astype("int8")
+        group[TARGET] = group[TARGET].interpolate(
+            method="time", limit=PM25_INTERP_LIMIT, limit_direction="forward"
+        )
+        group = group[group[TARGET].notna()].reset_index()
         parts.append(group)
+    filled = pd.concat(parts, ignore_index=True)
+    filled["location_id"] = filled["location_id"].astype("int64")
+    n_new = int(filled["pm25_was_interpolated"].sum())
+    if n_new:
+        print(f"Date-gap fill: added {n_new} interpolated pm25 rows")
+    return filled
 
-    return pd.concat(parts, ignore_index=True)
+
+def _assign_chronological_splits(df: pd.DataFrame) -> pd.DataFrame:
+    # Use global calendar-date cutoffs so all stations cover the same time periods
+    # per split.  Per-station row-count splits put 2161306's winter peak in val,
+    # which caused val PM2.5 max=440 vs test max=133 — unreliable early stopping.
+    all_dates = np.sort(df["date"].dt.normalize().unique())
+    n = len(all_dates)
+    train_cutoff = all_dates[int(n * TRAIN_FRAC)]
+    val_cutoff   = all_dates[int(n * (TRAIN_FRAC + VALIDATION_FRAC))]
+
+    df = df.copy()
+    df[SPLIT_COL] = "test"
+    df.loc[df["date"] < train_cutoff, SPLIT_COL] = "train"
+    df.loc[(df["date"] >= train_cutoff) & (df["date"] < val_cutoff), SPLIT_COL] = "validation"
+    return df
 
 
 def _numeric_feature_columns(df: pd.DataFrame) -> list[str]:
@@ -75,6 +104,7 @@ def _numeric_feature_columns(df: pd.DataFrame) -> list[str]:
         "location_name",
         "source_file",
         SPLIT_COL,
+        "pm25_was_interpolated",
     }
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
     return [col for col in numeric_cols if col not in excluded]
@@ -151,6 +181,7 @@ def _interpolate_group(
 def preprocess() -> tuple[pd.DataFrame, pd.DataFrame]:
     df = _load_station_files()
     df["date"] = pd.to_datetime(df["date"], format="mixed")
+    df = _fill_date_gaps(df)
     df["day_of_week"] = df["date"].dt.dayofweek
     df["month"] = df["date"].dt.month
     df["day_of_year"] = df["date"].dt.dayofyear
@@ -158,6 +189,11 @@ def preprocess() -> tuple[pd.DataFrame, pd.DataFrame]:
 
     if df[TARGET].isna().any():
         raise ValueError("Target pm25 contains missing values; do not impute the target.")
+
+    invalid_mask = (df[TARGET] <= 0) | (df[TARGET] > 500)
+    if invalid_mask.any():
+        print(f"Dropping {invalid_mask.sum()} rows with pm25 <= 0 or > 500")
+        df = df[~invalid_mask].reset_index(drop=True)
 
     df = _assign_chronological_splits(df)
     feature_cols = _numeric_feature_columns(df)

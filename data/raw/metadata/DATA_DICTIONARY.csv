@@ -1,0 +1,11 @@
+﻿column_name,data_type,unit,nullable,role,description,example,notes
+datetime_utc,"datetime64[ns, UTC] hoặc chuỗi ISO 8601 nếu chưa parse",Mốc thời gian UTC,Không,Khóa thời gian chính,"Thời điểm quan trắc ở múi giờ UTC; nên parse bằng pandas.to_datetime(..., utc=True).",2024-01-29 17:00:00+00:00,Nên dùng cùng location_id làm khóa ghép.
+location_id,int64,Mã định danh,Không,Mã trạm,Mã số duy nhất của trạm/điểm quan trắc.,2161292,"Trong bộ hiện tại, mỗi file chỉ chứa 1 trạm."
+location_name,string,Văn bản,Không,Tên trạm,Tên hiển thị của trạm quan trắc.,"Số 46, phố Lưu Quang Vũ",Hữu ích cho trực quan hóa và báo cáo.
+latitude,float64,Độ thập phân,Không,Tọa độ trạm,Vĩ độ WGS84 của trạm.,21.0152,Gần như cố định trong từng file.
+longitude,float64,Độ thập phân,Không,Tọa độ trạm,Kinh độ WGS84 của trạm.,105.7999,Gần như cố định trong từng file.
+CO mass µg/m³,float64,µg/m³,Có,Biến ô nhiễm,Nồng độ CO theo đơn vị khối lượng.,748.2,Có missing; nên kiểm tra trước khi gộp đa nguồn.
+NO₂ mass µg/m³,float64,µg/m³,Có,Biến ô nhiễm,Nồng độ NO₂ theo đơn vị khối lượng.,7.32,Tỷ lệ thiếu khá cao trong dữ liệu hiện tại.
+O₃ mass µg/m³,float64,µg/m³,Có,Biến ô nhiễm,Nồng độ O₃ theo đơn vị khối lượng.,26.62,Có thể dùng như co-pollutant feature.
+PM2.5 µg/m³,float64,µg/m³,Có,Biến mục tiêu,Nồng độ bụi mịn PM2.5.,48.63,Ứng viên chính cho target regression.
+SO₂ mass µg/m³,float64,µg/m³,Có,Biến ô nhiễm,Nồng độ SO₂ theo đơn vị khối lượng.,1.70,Một số file có missing rất cao.

@@ -18,8 +18,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
-DATA_DIR = Path("data/processed/satellite_pm25_daily")
-OUTPUT_DIR = Path("outputs/satellite_pm25_models")
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = _PROJECT_ROOT / "data/processed/02_satellite_pm25_daily"
+OUTPUT_DIR = _PROJECT_ROOT / "outputs/satellite_pm25_models"
 TARGET = "pm25"
 RANDOM_STATE = 42
 
@@ -55,7 +56,8 @@ def feature_columns(df: pd.DataFrame) -> tuple[list[str], list[str]]:
     }
     candidates = [col for col in df.columns if col not in exclude]
     numeric_features = [
-        col for col in candidates if pd.api.types.is_numeric_dtype(df[col])
+        col for col in candidates
+        if pd.api.types.is_numeric_dtype(df[col]) and df[col].std() > 1e-6
     ]
     categorical_features = [
         col for col in candidates if not pd.api.types.is_numeric_dtype(df[col])

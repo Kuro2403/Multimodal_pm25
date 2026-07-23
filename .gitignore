@@ -2,38 +2,42 @@
 __pycache__/
 *.py[cod]
 
-# Data and generated artifacts
-data/*
-!data/.gitkeep
-!data/raw/
-data/raw/*
-!data/raw/.gitkeep
-!data/interim/
-data/interim/*
-!data/interim/.gitkeep
-!data/processed/
-data/processed/*
-!data/processed/.gitkeep
+# Ignore AI Command and temporary scratch files
+scripts/AI_Command/
+scratch/
+.claude/
+catboost_info/
+list_recent.py
+patch_notebooks.py
+recent_files.txt
+~$*.docx
+*.tmp
+*.log
+
+# Ignore docs directory per user request
+docs/
+
+# Ignore large raw files (>100MB)
+data/raw/DataAOD/Hanoi/all_stations_openmeteo_hourly.csv
+
+# Outputs / Models
 outputs/
 models/
-*.log
-*.tmp
 
 # Jupyter
 .ipynb_checkpoints/
 
-# OS / editor
+# OS / Editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
-# Large external references
+# Large external references / weights
 references/external_code/**/Checkpoints/
 references/external_code/**/Datadir/
 references/external_code/**/mlruns/
 references/external_code/**/results/
-references/external_code/**/data/
 references/external_code/airfortomorrow-main/assets/dem/
 references/external_code/airfortomorrow-main/assets/landcover/
 references/external_code/airfortomorrow-main/assets/sensor_lists/

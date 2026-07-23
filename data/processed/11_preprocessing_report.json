@@ -1,0 +1,48 @@
+{
+  "files_produced": [
+    "00_raw_merged_all_sources.csv",
+    "01_daily_merged.csv",
+    "02_daily_merged_unimputed.csv"
+  ],
+  "backbone_source": "data\\interim\\openmeteo\\all_stations_openaq_meteo_daily.csv",
+  "external_sources_merged": [
+    "04_era5_blh",
+    "05_era5_rh850",
+    "06_era5_tinv",
+    "07_cams_aod",
+    "08_maiac_aod",
+    "09_firms",
+    "10_hcho_s5p",
+    "03_spatial"
+  ],
+  "shape_raw": [
+    0,
+    152
+  ],
+  "shape_imputed": [
+    2585,
+    164
+  ],
+  "shape_unimputed": [
+    2585,
+    152
+  ],
+  "split": {
+    "train": 1288,
+    "validation": 549,
+    "test": 748
+  },
+  "satellite_nan_before_impute": 8627,
+  "satellite_nan_after_impute": 0,
+  "new_columns_vs_old": {
+    "hcho": [
+      "hcho_mean",
+      "hcho_std",
+      "hcho_min",
+      "hcho_max",
+      "hcho_median",
+      "hcho_valid_pixels"
+    ],
+    "spatial_extra": []
+  }
+}

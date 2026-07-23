@@ -1,0 +1,3 @@
+﻿file_name,rows,columns,start_utc,end_utc,location_id,location_name,latitude,longitude,duplicate_rows,duplicate_datetime_location,CO mass µg/m³ missing,CO mass µg/m³ missing_pct,NO₂ mass µg/m³ missing,NO₂ mass µg/m³ missing_pct,O₃ mass µg/m³ missing,O₃ mass µg/m³ missing_pct,PM2.5 µg/m³ missing,PM2.5 µg/m³ missing_pct,SO₂ mass µg/m³ missing,SO₂ mass µg/m³ missing_pct
+2161292_LuuQuangVu.csv,16414,10,2024-01-29 17:00:00 UTC,2026-04-20 23:00:00 UTC,2161292,"Số 46, phố Lưu Quang Vũ",21.0152,105.7999,0,0,1813,11.05,5587,34.04,4234,25.8,590,3.59,10763,65.57
+2161306_MinhKhai.csv,9653,10,2024-01-29 17:00:00 UTC,2026-04-20 23:00:00 UTC,2161306,Minh Khai - Bắc Từ Liêm,21.05,105.74,0,0,3085,31.96,7110,73.66,1838,19.04,2999,31.07,4659,48.26

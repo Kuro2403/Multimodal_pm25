@@ -1,0 +1,16 @@
+{
+  "input_files": [
+    "all_stations_satellite_hourly.csv",
+    "all_stations_openmeteo_hourly.csv"
+  ],
+  "output_file": "daily_merged.csv",
+  "rows": 2566,
+  "columns": 102,
+  "stations": 6,
+  "imputation_strategy": {
+    "pm25_hourly": "linear interpolation <= 6h per station",
+    "pm25_daily": "linear forward-fill <= 3 days, then drop",
+    "satellite": "forward 14d -> backward 7d -> monthly median -> station median",
+    "met": "no imputation needed (0% missing)"
+  }
+}
