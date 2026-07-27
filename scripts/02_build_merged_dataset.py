@@ -1,6 +1,6 @@
 """
-build_merged_datasets.py
-========================
+02_build_merged_dataset.py
+==========================
 Master data merge pipeline for PM2.5 Multimodal project.
 
 Produces 3 output files in data/processed/:
@@ -22,7 +22,7 @@ Workflow:
   Step 10 Save 01_daily_merged.csv (imputed) and 02_daily_merged_unimputed.csv
 
 Reuse: Run this script any time raw sources are updated.
-       python scripts/build_merged_datasets.py
+       python scripts/02_build_merged_dataset.py
 """
 from __future__ import annotations
 import json, sys, warnings

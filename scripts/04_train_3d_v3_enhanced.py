@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-train_3d_v2.py
-==============
+04_train_3d_v3_enhanced.py
+==========================
 Loads from data/processed/daily_merged.csv with three fixes applied:
 
   Fix 1 — Leak-free satellite re-imputation after split
@@ -51,13 +51,32 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 import lightgbm as lgb
 import xgboost as xgb
-from catboost import CatBoostRegressor
+
+try:
+    from catboost import CatBoostRegressor
+    HAS_CATBOOST = True
+except ImportError:
+    HAS_CATBOOST = False
+    CatBoostRegressor = None
 
 warnings.filterwarnings("ignore")
 torch.set_num_threads(4)
 
-ROOT      = Path(__file__).resolve().parent.parent
-DATA_FILE = ROOT / "data/processed/01_daily_merged.csv"
+ROOT = Path(__file__).resolve().parent.parent
+
+def find_data_file():
+    candidates = [
+        ROOT / "data/processed/01_daily_merged.csv",
+        ROOT / "data/processed/01_daily_merged_clean.csv",
+        ROOT / "data/processed/daily_merged.csv",
+        ROOT / "data/processed/01_daily_merged_advanced_v3.csv",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return ROOT / "data/processed/01_daily_merged.csv"
+
+DATA_FILE = find_data_file()
 OUT_DIR   = ROOT / "outputs/final_3d_v3"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -665,10 +684,15 @@ def make_gbr(): return GradientBoostingRegressor(
     min_samples_leaf=5, random_state=42,
     validation_fraction=0.1, n_iter_no_change=50)
 
-def make_cat(): return CatBoostRegressor(
-    iterations=6000, depth=6, learning_rate=0.005,
-    subsample=0.8, reg_lambda=1.0, random_seed=42,
-    verbose=0, early_stopping_rounds=200, eval_metric="RMSE")
+def make_cat():
+    if HAS_CATBOOST:
+        return CatBoostRegressor(
+            iterations=6000, depth=6, learning_rate=0.005,
+            subsample=0.8, reg_lambda=1.0, random_seed=42,
+            verbose=0, early_stopping_rounds=200, eval_metric="RMSE")
+    else:
+        return HistGradientBoostingRegressor(
+            max_iter=1500, learning_rate=0.015, max_depth=5, min_samples_leaf=4, random_state=42)
 
 def make_etr(): return ExtraTreesRegressor(
     n_estimators=2000, max_depth=7, min_samples_leaf=2,
@@ -1008,8 +1032,11 @@ def main():
         m = make_gbr(); m.fit(Xfull[fi_tr], yfull_fit[fi_tr], sample_weight=sw_f)
         oof_gbr[fi_va] = inv_log(m.predict(Xfull[fi_va]))
         m = make_cat()
-        m.fit(Xfull[fi_tr], yfull_fit[fi_tr], sample_weight=sw_f,
-              eval_set=(Xfull[fi_va], yfull_fit[fi_va]))
+        if HAS_CATBOOST:
+            m.fit(Xfull[fi_tr], yfull_fit[fi_tr], sample_weight=sw_f,
+                  eval_set=(Xfull[fi_va], yfull_fit[fi_va]))
+        else:
+            m.fit(Xfull[fi_tr], yfull_fit[fi_tr])
         oof_cat[fi_va] = inv_log(m.predict(Xfull[fi_va]))
         m = make_etr(); m.fit(Xfull[fi_tr], yfull_fit[fi_tr], sample_weight=sw_f)
         oof_etr[fi_va] = inv_log(m.predict(Xfull[fi_va]))
@@ -1042,8 +1069,11 @@ def main():
     lgbm_es.fit(Xtr, y_tr_fit, sample_weight=sw_tr, eval_set=[(Xva_late_es, yva_fit_late)],
                 callbacks=[lgb.early_stopping(100, verbose=False), lgb.log_evaluation(-1)])
     best_n_lgb = max(lgbm_es.best_iteration_ + 1, 50)
-    catm_es = make_cat(); catm_es.fit(Xtr, y_tr_fit, sample_weight=sw_tr, eval_set=(Xva_late_es, yva_fit_late))
-    best_n_cat = max(catm_es.get_best_iteration() + 1, 50)
+    if HAS_CATBOOST:
+        catm_es = make_cat(); catm_es.fit(Xtr, y_tr_fit, sample_weight=sw_tr, eval_set=(Xva_late_es, yva_fit_late))
+        best_n_cat = max(catm_es.get_best_iteration() + 1, 50)
+    else:
+        best_n_cat = 1500
     print(f"  Best iters: XGB={best_n_xgb}  LGB={best_n_lgb}  CAT={best_n_cat}")
 
     print("  Retraining on train+val ...")
@@ -1061,9 +1091,13 @@ def main():
                                      subsample=0.8, min_samples_leaf=5, random_state=42)
     gbrm.fit(Xfull, yfull_fit, sample_weight=sw_full)
     
-    catm = CatBoostRegressor(iterations=best_n_cat, depth=6, learning_rate=0.005,
-        subsample=0.8, reg_lambda=1.0, random_seed=42, verbose=0)
-    catm.fit(Xfull, yfull_fit, sample_weight=sw_full)
+    if HAS_CATBOOST:
+        catm = CatBoostRegressor(iterations=best_n_cat, depth=6, learning_rate=0.005,
+            subsample=0.8, reg_lambda=1.0, random_seed=42, verbose=0)
+        catm.fit(Xfull, yfull_fit, sample_weight=sw_full)
+    else:
+        catm = make_cat()
+        catm.fit(Xfull, yfull_fit)
     etrm = make_etr(); etrm.fit(Xfull, yfull_fit, sample_weight=sw_full)
     rfm  = make_rf();  rfm.fit(Xfull, yfull_fit, sample_weight=sw_full)
     knnm = make_knn(); knnm.fit(Xfull_sc, yfull_fit)

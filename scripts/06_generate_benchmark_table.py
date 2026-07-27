@@ -193,7 +193,9 @@ def impute_satellite(df: pd.DataFrame, sat_cols: list, tr_idx: list, method="int
                 continue
             
             if method == "interpolate":
-                grp[c] = grp[c].interpolate(method="linear", limit=14, limit_direction="forward")
+                if len(grp) > 1:
+                    lim = min(14, len(grp) - 1)
+                    grp[c] = grp[c].interpolate(method="linear", limit=lim, limit_direction="forward")
                 if grp[c].isna().any():
                     aligned_medians = df_month.loc[grp.index].map(monthly_medians[c])
                     grp[c] = grp[c].fillna(aligned_medians)
@@ -269,7 +271,7 @@ def main():
     precip = df["precipitation_mm"] if "precipitation_mm" in df.columns else df["precip_daily_mm"]
     ws = df["wind_speed_mean_kmh"]
 
-    df["stagnation_index"] = 1.0 / (ws * precip + 1.0)
+    df["stagnation_index"] = 1.0 / ((ws + 1.0) * (precip + 1.0))
     df["ventilation_coeff"] = ws * df["blh_mean_m"] if "blh_mean_m" in df.columns else 0.0
 
     if "wind_direction_deg" in df.columns:
@@ -439,11 +441,13 @@ def main():
     catm.fit(X_tr_full_raw, y_tr_full)
     catm_preds_va = catm.predict(imputer.transform(X_va_raw))
     catm_preds_te = catm.predict(imputer.transform(X_te_raw))
+    results.append(["CatBoost", *evaluate_model(y_va, catm_preds_va), *evaluate_model(y_te, catm_preds_te)])
 
     etm = ExtraTreesRegressor(n_estimators=400, max_depth=16, min_samples_leaf=2, max_features=0.5, random_state=42, n_jobs=-1)
     etm.fit(X_tr_full, y_tr_full)
     etm_preds_va = etm.predict(X_va)
     etm_preds_te = etm.predict(X_te)
+    results.append(["Extra Trees", *evaluate_model(y_va, etm_preds_va), *evaluate_model(y_te, etm_preds_te)])
 
     # Weighted Ensemble
     ensemble_preds_va = 0.35 * rf_preds_va + 0.30 * catm_preds_va + 0.20 * etm_preds_va + 0.15 * lgbm_preds_va

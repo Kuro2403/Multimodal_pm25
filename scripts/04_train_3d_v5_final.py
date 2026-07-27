@@ -238,6 +238,30 @@ def load_data():
     """Load daily_merged.csv. Satellite re-imputation happens after split."""
     df = pd.read_csv(DATA_FILE, encoding="utf-8-sig")
     df["date"] = pd.to_datetime(df["date"])
+
+    if "latitude_x" in df.columns:
+        df = df.rename(columns={"latitude_x": "latitude", "longitude_x": "longitude"})
+
+    if "latitude" not in df.columns or df["latitude"].isna().any():
+        stations_ref_path = ROOT / "data/raw/DataAOD/Hanoi/Stations.xlsx"
+        if stations_ref_path.exists():
+            stations_ref = pd.read_excel(stations_ref_path)
+            stations_ref = stations_ref[["Location", "Lat", "Lon"]].rename(
+                columns={"Location": "location_id", "Lat": "ref_lat", "Lon": "ref_lon"}
+            )
+            df["location_id"] = df["location_id"].astype(str)
+            stations_ref["location_id"] = stations_ref["location_id"].astype(str)
+            if "ref_lat" in df.columns:
+                df = df.drop(columns=["ref_lat", "ref_lon"], errors="ignore")
+            df = df.merge(stations_ref, on="location_id", how="left")
+            if "latitude" in df.columns:
+                df["latitude"] = df["latitude"].fillna(df["ref_lat"])
+                df["longitude"] = df["longitude"].fillna(df["ref_lon"])
+            else:
+                df["latitude"] = df["ref_lat"]
+                df["longitude"] = df["ref_lon"]
+            df = df.drop(columns=["ref_lat", "ref_lon"], errors="ignore")
+
     for c in SAT_COLS_3D:
         if c not in df.columns:
             df[c] = 0.0

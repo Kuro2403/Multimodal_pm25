@@ -1,2 +1,11 @@
 requests
 pandas
+numpy
+matplotlib
+scikit-learn
+lightgbm
+xgboost
+torch
+catboost
+seaborn
+openpyxl

@@ -200,7 +200,9 @@ def impute_satellite(df: pd.DataFrame, sat_cols: list, tr_idx: list, method="int
                 continue
             
             if method == "interpolate":
-                grp[c] = grp[c].interpolate(method="linear", limit=14, limit_direction="forward")
+                if len(grp) > 1:
+                    lim = min(14, len(grp) - 1)
+                    grp[c] = grp[c].interpolate(method="linear", limit=lim, limit_direction="forward")
                 if grp[c].isna().any():
                     aligned_medians = df_month.loc[grp.index].map(monthly_medians[c])
                     grp[c] = grp[c].fillna(aligned_medians)
@@ -267,6 +269,17 @@ def run_ablation_pipeline(drop_cols=[], outlier_filt=True):
     df["pm25_diff1"] = df["pm25_lag1"] - df["pm25_lag2"]
     df["pm25_diff7"] = df["pm25_lag1"] - df["pm25_lag7"]
     df["pm25_ratio3_7"] = df["pm25_roll3_mean"] / (df["pm25_roll7_mean"] + 1.0)
+    
+    decay_weights = np.exp(-0.3 * np.arange(6))
+    decay_weights /= decay_weights.sum()
+    df["pm25_lag_decay"] = (
+        df["pm25_lag1"] * decay_weights[0] +
+        df["pm25_lag2"] * decay_weights[1] +
+        df["pm25_lag3"] * decay_weights[2] +
+        df["pm25_lag4"] * decay_weights[3] +
+        df["pm25_lag5"] * decay_weights[4] +
+        df["pm25_lag7"] * decay_weights[5]
+    ).fillna(0)
 
     df["is_polluted"] = (df["pm25"] > 50).astype(int)
     df["polluted_group"] = df.groupby("location_id")["is_polluted"].transform(lambda s: (s == 0).cumsum())
@@ -276,7 +289,7 @@ def run_ablation_pipeline(drop_cols=[], outlier_filt=True):
     precip = df["precipitation_mm"] if "precipitation_mm" in df.columns else df["precip_daily_mm"]
     ws = df["wind_speed_mean_kmh"]
 
-    df["stagnation_index"] = 1.0 / (ws * precip + 1.0)
+    df["stagnation_index"] = 1.0 / ((ws + 1.0) * (precip + 1.0))
     df["ventilation_coeff"] = ws * df["blh_mean_m"] if "blh_mean_m" in df.columns else 0.0
 
     if "wind_direction_deg" in df.columns:
@@ -368,10 +381,10 @@ def run_ablation_pipeline(drop_cols=[], outlier_filt=True):
         
         for c in SAT_COLS_3D:
             if c in grp.columns:
-                df.loc[grp.index, f"{c}_roll7"] = grp[c].rolling(window=7, min_periods=1).mean()
+                df.loc[grp.index, f"{c}_roll7"] = grp[c].shift(1).rolling(window=7, min_periods=1).mean()
         for c in AOD_COLS:
             if c in grp.columns:
-                df.loc[grp.index, f"{c}_roll7"] = grp[c].rolling(window=7, min_periods=1).mean()
+                df.loc[grp.index, f"{c}_roll7"] = grp[c].shift(1).rolling(window=7, min_periods=1).mean()
 
     print("Safely Imputing Satellite Features...")
     for c in SAT_COLS_3D:

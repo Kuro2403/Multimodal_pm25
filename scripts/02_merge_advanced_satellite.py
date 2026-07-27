@@ -11,7 +11,7 @@ def main():
     
     if not os.path.exists(gee_file):
         print(f"Error: Advanced satellite data not found at {gee_file}.")
-        print("Please ensure you have run the crawl_satellite_gee.py script to completion.")
+        print("Please ensure you have run the 01_crawl_satellite_gee.py script to completion.")
         return
 
     print(f"Reading advanced satellite data: {gee_file}")

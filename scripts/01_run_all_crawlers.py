@@ -1,5 +1,6 @@
 import subprocess
 import os
+import sys
 
 notebooks_to_run = [
     'era5_rh850_crawling.ipynb',
@@ -19,7 +20,7 @@ for nb in notebooks_to_run:
     print(f'========== RUNNING {nb} ==========')
     try:
         subprocess.run([
-            '.venv/Scripts/jupyter.exe', 'nbconvert', '--to', 'notebook', '--execute', '--inplace', path
+            sys.executable, '-m', 'jupyter', 'nbconvert', '--to', 'notebook', '--execute', '--inplace', path
         ], check=True)
         print(f'SUCCESS: {nb}')
     except subprocess.CalledProcessError as e:

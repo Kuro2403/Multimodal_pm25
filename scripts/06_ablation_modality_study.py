@@ -415,30 +415,50 @@ def run_ablation_pipeline(drop_cols=[], outlier_filt=True):
     y_va = df.iloc[va_idx]["pm25"].values
     y_te = df.iloc[te_idx]["pm25_raw"].values # Always evaluate on raw target!
     
+    # Combine Train + Val for Final Model Fitting (matching benchmark table)
+    X_tr_full = np.vstack([X_tr, X_va])
+    X_tr_full_raw = np.vstack([imputer.transform(X_tr_raw), imputer.transform(X_va_raw)])
+    y_tr_full = np.concatenate([y_tr, y_va])
+
     # Train/Eval baseline ML Models
     # A. Lasso
-    lasso = Lasso(alpha=0.1, random_state=42)
-    lasso.fit(X_tr, y_tr)
+    lasso = Lasso(alpha=0.03, random_state=42)
+    lasso.fit(X_tr_full, y_tr_full)
     lasso_preds = lasso.predict(X_te)
     lasso_r2 = r2_score(y_te, lasso_preds)
     
     # B. Random Forest
-    rf = RandomForestRegressor(n_estimators=100, max_depth=8, random_state=42, n_jobs=-1)
-    rf.fit(X_tr, y_tr)
+    rf = RandomForestRegressor(n_estimators=400, max_depth=16, min_samples_leaf=2, max_features=0.4, random_state=42, n_jobs=-1)
+    rf.fit(X_tr_full, y_tr_full)
     rf_preds = rf.predict(X_te)
     rf_r2 = r2_score(y_te, rf_preds)
     
     # C. LightGBM (Native NaNs)
-    lgbm = lgb.LGBMRegressor(n_estimators=400, max_depth=8, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8, random_state=42, verbosity=-1)
-    lgbm.fit(X_tr_raw, y_tr)
-    lgbm_preds = lgbm.predict(X_te_raw)
+    lgbm = lgb.LGBMRegressor(n_estimators=600, max_depth=8, num_leaves=45, learning_rate=0.02, subsample=0.85, colsample_bytree=0.75, random_state=42, verbosity=-1)
+    lgbm.fit(X_tr_full_raw, y_tr_full)
+    lgbm_preds = lgbm.predict(imputer.transform(X_te_raw))
     lgbm_r2 = r2_score(y_te, lgbm_preds)
     
     # C2. XGBoost (Native NaNs)
-    xgbm = xgb.XGBRegressor(n_estimators=400, max_depth=8, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=-1)
-    xgbm.fit(X_tr_raw, y_tr)
-    xgbm_preds = xgbm.predict(X_te_raw)
+    xgbm = xgb.XGBRegressor(n_estimators=600, max_depth=6, learning_rate=0.02, subsample=0.85, colsample_bytree=0.75, random_state=42, n_jobs=-1)
+    xgbm.fit(X_tr_full_raw, y_tr_full)
+    xgbm_preds = xgbm.predict(imputer.transform(X_te_raw))
     xgbm_r2 = r2_score(y_te, xgbm_preds)
+
+    # C3. CatBoost
+    catm = CatBoostRegressor(iterations=800, depth=7, learning_rate=0.025, l2_leaf_reg=4, random_seed=42, verbose=0)
+    catm.fit(X_tr_full_raw, y_tr_full)
+    catm_preds = catm.predict(imputer.transform(X_te_raw))
+    catm_r2 = r2_score(y_te, catm_preds)
+
+    # C4. Extra Trees
+    etm = ExtraTreesRegressor(n_estimators=400, max_depth=16, min_samples_leaf=2, max_features=0.5, random_state=42, n_jobs=-1)
+    etm.fit(X_tr_full, y_tr_full)
+    etm_preds = etm.predict(X_te)
+
+    # C5. Stacking Ensemble
+    ensemble_preds = 0.35 * rf_preds + 0.30 * catm_preds + 0.20 * etm_preds + 0.15 * lgbm_preds
+    ensemble_r2 = r2_score(y_te, ensemble_preds)
     
     # Prepare Deep Learning Data
     seq_feats = ["pm25"] + MET_COLS
@@ -528,8 +548,10 @@ def run_ablation_pipeline(drop_cols=[], outlier_filt=True):
         "Random Forest": rf_r2,
         "LightGBM": lgbm_r2,
         "XGBoost": xgbm_r2,
+        "CatBoost": catm_r2,
         "Simple LSTM": lstm_r2,
-        "Multimodal": mm_r2
+        "Multimodal": mm_r2,
+        "Ensemble (Causal)": ensemble_r2
     }
 # -----------------------------------------------------------------------------
 # MAIN RUNNER
